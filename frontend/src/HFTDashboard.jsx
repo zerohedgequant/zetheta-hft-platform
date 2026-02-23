@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import RiskDashboard from "./components/RiskDashboard";
 
 // ═══════════════════════════════════════════════════════════════
 // ZETHETA HFT PUZZLE PLATFORM v2 — REFINED TRADING DASHBOARD
@@ -664,7 +665,7 @@ export default function HFTDashboard() {
           <span style={{ fontFamily: MONO, fontSize: 9, color: T.textMuted, padding: "2px 6px", background: T.cyanDim, borderRadius: 2 }}>HFT ARENA</span>
         </div>
         <div style={{ display: "flex", gap: 2, background: T.surface, borderRadius: 4, padding: 2, border: `1px solid ${T.border}` }}>
-          {[{ key: "trade", label: "TRADE", icon: "◈" }, { key: "challenges", label: "CHALLENGES", icon: "◆" }, { key: "leaderboard", label: "RANKINGS", icon: "◇" }].map(v => (
+          {[{ key: "trade", label: "TRADE", icon: "◈" }, { key: "challenges", label: "CHALLENGES", icon: "◆" }, { key: "leaderboard", label: "RANKINGS", icon: "◇" }, { key: "risk", label: "RISK", icon: "⚡" }].map(v => (
             <button key={v.key} onClick={() => setView(v.key)} style={{ padding: "5px 14px", fontFamily: DISPLAY, fontSize: 8.5, letterSpacing: 1.5, background: view === v.key ? T.cyanDim : "transparent", border: "none", color: view === v.key ? T.cyan : T.textDim, borderRadius: 3, cursor: "pointer", transition: "all 0.12s", display: "flex", alignItems: "center", gap: 4 }}>
               <span style={{ fontSize: 7 }}>{v.icon}</span> {v.label}
             </button>
@@ -751,6 +752,7 @@ export default function HFTDashboard() {
         )}
         {view === "challenges" && <ChallengesView onStart={startChallenge} />}
         {view === "leaderboard" && <LeaderboardView />}
+        {view === "risk" && <RiskDashboard sessionId="demo123" apiBaseUrl="http://localhost:8000" />}
       </div>
     </div>
   );
