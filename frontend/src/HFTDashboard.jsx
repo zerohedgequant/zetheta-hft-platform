@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import RiskDashboard from "./components/RiskDashboard";
+import { useRiskCheck } from "./components/useRiskCheck";
 
 // ═══════════════════════════════════════════════════════════════
 // ZETHETA HFT PUZZLE PLATFORM v2 — REFINED TRADING DASHBOARD
@@ -98,10 +99,6 @@ const LEADERBOARD_DATA = [
   { rank: 10, name: "TickSniper", score: 3100, solved: 2, best: "2.0μs", streak: 0 },
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// MICRO COMPONENTS
-// ═══════════════════════════════════════════════════════════════
-
 function Panel({ children, title, accent = T.cyan, style = {}, right, noPad }) {
   return (
     <div style={{ background: T.panel, border: `1px solid ${T.border}`, borderRadius: 4, display: "flex", flexDirection: "column", overflow: "hidden", ...style }}>
@@ -152,14 +149,20 @@ function Toast({ toast, onDone }) {
     const t = setTimeout(() => { setShow(false); setTimeout(onDone, 300); }, 2200);
     return () => clearTimeout(t);
   }, []);
-  const color = toast.side === "BUY" ? T.green : T.red;
+  const color = toast.type === "error" ? T.red : toast.side === "BUY" ? T.green : T.red;
   return (
     <div style={{ padding: "8px 14px", background: T.panel, border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`, borderRadius: 4, fontFamily: MONO, fontSize: 11, color: T.text, opacity: show ? 1 : 0, transform: show ? "translateX(0)" : "translateX(20px)", transition: "all 0.3s ease", boxShadow: `0 4px 20px rgba(0,0,0,0.5), 0 0 15px ${color}15`, display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ color, fontWeight: 700 }}>{toast.side}</span>
-      <span style={{ color: T.textDim }}>×</span>
-      <span>{toast.qty}</span>
-      <span style={{ color: T.textDim }}>@</span>
-      <span style={{ color }}>{fmt(toast.price)}</span>
+      {toast.type === "error" ? (
+        <span style={{ color }}>{toast.message}</span>
+      ) : (
+        <>
+          <span style={{ color, fontWeight: 700 }}>{toast.side}</span>
+          <span style={{ color: T.textDim }}>×</span>
+          <span>{toast.qty}</span>
+          <span style={{ color: T.textDim }}>@</span>
+          <span style={{ color }}>{fmt(toast.price)}</span>
+        </>
+      )}
     </div>
   );
 }
@@ -172,9 +175,6 @@ function ToastContainer({ toasts, removeToast }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CANDLESTICK CHART
-// ═══════════════════════════════════════════════════════════════
 function CandlestickChart({ candles, width, height }) {
   const [hover, setHover] = useState(null);
   const svgRef = useRef();
@@ -254,9 +254,6 @@ function CandlestickChart({ candles, width, height }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// DEPTH CHART
-// ═══════════════════════════════════════════════════════════════
 function DepthChart({ book, width, height }) {
   const pad = { left: 10, right: 10, top: 5, bottom: 5 };
   const w = width - pad.left - pad.right;
@@ -283,9 +280,6 @@ function DepthChart({ book, width, height }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ORDER BOOK
-// ═══════════════════════════════════════════════════════════════
 function OrderBook({ book }) {
   const Row = ({ price, qty, total, side, maxQty }) => {
     const isBid = side === "bid";
@@ -326,9 +320,6 @@ function OrderBook({ book }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// TRADING PANEL
-// ═══════════════════════════════════════════════════════════════
 function TradingPanel({ midPrice, onTrade }) {
   const [side, setSide] = useState("BUY");
   const [orderType, setOrderType] = useState("LIMIT");
@@ -390,9 +381,6 @@ function TradingPanel({ midPrice, onTrade }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// STATS BAR + CHALLENGE BANNER + TRADE LOG
-// ═══════════════════════════════════════════════════════════════
 function StatsBar({ pnl, trades, position, latency }) {
   const S = ({ label, value, color, prefix = "" }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -456,9 +444,6 @@ function TradeLog({ trades }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// CHALLENGES VIEW
-// ═══════════════════════════════════════════════════════════════
 function ChallengesView({ onStart }) {
   const [sel, setSel] = useState(null);
   const c = sel !== null ? CHALLENGES[sel] : null;
@@ -530,9 +515,6 @@ function ChallengesView({ onStart }) {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// LEADERBOARD VIEW
-// ═══════════════════════════════════════════════════════════════
 function LeaderboardView() {
   const podium = LEADERBOARD_DATA.slice(0, 3);
   const rest = LEADERBOARD_DATA.slice(3);
@@ -576,9 +558,6 @@ function LeaderboardView() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN APP
-// ═══════════════════════════════════════════════════════════════
 export default function HFTDashboard() {
   const MID = 152.35;
   const [candles, setCandles] = useState(() => generateCandles(MID));
@@ -592,6 +571,8 @@ export default function HFTDashboard() {
   const [bottomTab, setBottomTab] = useState("Trades");
   const [toasts, setToasts] = useState([]);
   const [latency] = useState(() => rand(0.3, 1.2));
+  
+  const { checkOrder, updatePosition, updatePnL } = useRiskCheck("demo123");
 
   const currentPrice = candles[candles.length - 1]?.close || MID;
   const firstPrice = candles[0]?.open || MID;
@@ -623,13 +604,26 @@ export default function HFTDashboard() {
     return () => clearInterval(iv);
   }, [activeChallenge, timeLeft]);
 
-  const handleTrade = useCallback(trade => {
+  const handleTrade = useCallback(async (trade) => {
+    const riskResult = await checkOrder(trade);
+    
+    if (!riskResult.passed) {
+      const msg = riskResult.violations?.[0]?.message || 'Risk limit exceeded';
+      setToasts(prev => [...prev, { id: uid(), type: "error", message: `⚠️ REJECTED: ${msg}` }]);
+      return;
+    }
+    
     setTrades(prev => [trade, ...prev].slice(0, 100));
     const delta = trade.side === "BUY" ? trade.qty : -trade.qty;
-    setPosition(p => p + delta);
-    setPnl(p => p + delta * rand(-0.03, 0.035));
+    const newPosition = position + delta;
+    setPosition(newPosition);
+    const newPnl = pnl + delta * rand(-0.03, 0.035);
+    setPnl(newPnl);
     setToasts(prev => [...prev, { ...trade, id: uid() }]);
-  }, []);
+    
+    updatePosition("AAPL", newPosition);
+    updatePnL(newPnl);
+  }, [position, pnl, checkOrder, updatePosition, updatePnL]);
 
   const removeToast = useCallback(id => setToasts(prev => prev.filter(t => t.id !== id)), []);
 
@@ -652,10 +646,8 @@ export default function HFTDashboard() {
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
 
-      {/* Scan lines */}
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9999, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(34,211,238,0.008) 3px, rgba(34,211,238,0.008) 4px)", mixBlendMode: "screen" }} />
 
-      {/* NAV */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 42, borderBottom: `1px solid ${T.border}`, background: T.bgAlt, flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 22, height: 22, background: `linear-gradient(135deg, ${T.cyan}, ${T.cyan}80)`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center" }}>
