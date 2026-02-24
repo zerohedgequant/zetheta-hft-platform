@@ -2,10 +2,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import RiskDashboard from "./components/RiskDashboard";
 import { useRiskCheck } from "./components/useRiskCheck";
 
-// ═══════════════════════════════════════════════════════════════
-// ZETHETA HFT PUZZLE PLATFORM v2 — REFINED TRADING DASHBOARD
-// ═══════════════════════════════════════════════════════════════
-
 const MONO = "'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace";
 const DISPLAY = "'Orbitron', sans-serif";
 const BODY = "'IBM Plex Mono', 'JetBrains Mono', monospace";
@@ -84,18 +80,22 @@ const CHALLENGES = [
   { id: "stat1", name: "Pairs Trading", cat: "Stat Arb", diff: 3, desc: "Trade mean-reversion between correlated instruments when the spread deviates from equilibrium.", obj: "Sharpe ratio > 1.5", time: 180, color: T.purple, icon: "📊", tips: ["Monitor z-score", "Size proportionally", "Exit at mean reversion"] },
   { id: "crash1", name: "Flash Crash", cat: "Risk Mgmt", diff: 3, desc: "A sudden crash hits the market. Manage risk, cut losses, and survive the chaos.", obj: "Max drawdown < $200", time: 60, color: T.red, icon: "💥", tips: ["Pre-set stop losses", "Reduce position fast", "Don't catch the knife"] },
   { id: "mm2", name: "Adverse Selection", cat: "Market Making", diff: 4, desc: "Market make against informed flow. Detect toxic orders and dynamically adjust your quotes.", obj: "Stay profitable despite toxic flow", time: 120, color: T.cyanBright, icon: "🛡️", tips: ["Track order flow toxicity", "Widen on informed flow", "Skew your quotes"] },
+  { id: "queue1", name: "Queue Position", cat: "Microstructure", diff: 3, desc: "Optimize your position in the order queue. Earlier placement means better fills and priority.", obj: "Achieve 80%+ queue priority score", time: 90, color: "#f472b6", icon: "📋", tips: ["Post orders early", "Cancel and repost strategically", "Monitor queue depth"] },
+  { id: "coloc1", name: "Co-location Edge", cat: "Latency", diff: 4, desc: "Simulate co-located trading with microsecond advantages. React faster than remote competitors.", obj: "Beat remote traders 15+ times", time: 120, color: "#60a5fa", icon: "🏢", tips: ["Minimize processing time", "Pre-compute decisions", "Use direct feeds"] },
+  { id: "flow1", name: "Order Flow Prediction", cat: "Information", diff: 4, desc: "Analyze incoming order patterns to predict large institutional orders before they fully execute.", obj: "Predict 5+ iceberg orders correctly", time: 150, color: "#c084fc", icon: "🔮", tips: ["Watch for repeated fills", "Detect hidden liquidity", "Size your bets carefully"] },
+  { id: "liq1", name: "Liquidity Hunter", cat: "Execution", diff: 3, desc: "Find hidden liquidity across dark pools and lit venues. Execute large orders with minimal impact.", obj: "Execute 50K shares with <$0.03 impact", time: 180, color: "#4ade80", icon: "🎯", tips: ["Slice orders intelligently", "Probe dark pools first", "Time your aggression"] },
 ];
 
 const LEADERBOARD_DATA = [
-  { rank: 1, name: "QuantKing_99", score: 14820, solved: 6, best: "0.4μs", streak: 12 },
-  { rank: 2, name: "AlphaSeeker", score: 12350, solved: 6, best: "0.6μs", streak: 8 },
-  { rank: 3, name: "NanoTrader", score: 11200, solved: 5, best: "0.5μs", streak: 6 },
-  { rank: 4, name: "ByteArb", score: 9870, solved: 5, best: "0.7μs", streak: 5 },
-  { rank: 5, name: "SpreadEagle", score: 8430, solved: 4, best: "0.9μs", streak: 3 },
-  { rank: 6, name: "DeltaHedge", score: 7650, solved: 4, best: "1.1μs", streak: 2 },
-  { rank: 7, name: "PipHunter", score: 6200, solved: 3, best: "1.3μs", streak: 0 },
-  { rank: 8, name: "MarketOwl", score: 5100, solved: 3, best: "1.5μs", streak: 0 },
-  { rank: 9, name: "FlowRider", score: 4200, solved: 2, best: "1.8μs", streak: 0 },
+  { rank: 1, name: "QuantKing_99", score: 14820, solved: 10, best: "0.4μs", streak: 12 },
+  { rank: 2, name: "AlphaSeeker", score: 12350, solved: 9, best: "0.6μs", streak: 8 },
+  { rank: 3, name: "NanoTrader", score: 11200, solved: 8, best: "0.5μs", streak: 6 },
+  { rank: 4, name: "ByteArb", score: 9870, solved: 8, best: "0.7μs", streak: 5 },
+  { rank: 5, name: "SpreadEagle", score: 8430, solved: 7, best: "0.9μs", streak: 3 },
+  { rank: 6, name: "DeltaHedge", score: 7650, solved: 6, best: "1.1μs", streak: 2 },
+  { rank: 7, name: "PipHunter", score: 6200, solved: 5, best: "1.3μs", streak: 0 },
+  { rank: 8, name: "MarketOwl", score: 5100, solved: 4, best: "1.5μs", streak: 0 },
+  { rank: 9, name: "FlowRider", score: 4200, solved: 3, best: "1.8μs", streak: 0 },
   { rank: 10, name: "TickSniper", score: 3100, solved: 2, best: "2.0μs", streak: 0 },
 ];
 
@@ -329,10 +329,8 @@ function TradingPanel({ midPrice, onTrade }) {
   const isBuy = side === "BUY";
   const accent = isBuy ? T.green : T.red;
   const est = parseFloat(price || 0) * parseInt(qty || 0);
-
   const tog = (active, color) => ({ flex: 1, padding: "7px 0", border: `1px solid ${active ? color + "60" : T.border}`, background: active ? color + "12" : "transparent", color: active ? color : T.textDim, fontFamily: MONO, fontSize: 10, fontWeight: 700, cursor: "pointer", borderRadius: 3, transition: "all 0.12s", letterSpacing: 1.2, textAlign: "center" });
   const inp = { width: "100%", padding: "8px 10px", background: T.bgAlt, border: `1px solid ${T.border}`, borderRadius: 3, color: T.text, fontFamily: MONO, fontSize: 12, outline: "none", boxSizing: "border-box", transition: "border-color 0.15s" };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 4 }}>
@@ -450,7 +448,7 @@ function ChallengesView({ onStart }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", height: "100%", gap: 1, background: T.border }}>
       <div style={{ background: T.panel, overflow: "auto" }}>
-        <div style={{ padding: "14px 14px 8px", fontFamily: DISPLAY, fontSize: 9, color: T.textDim, letterSpacing: 2, textTransform: "uppercase" }}><span style={{ color: T.cyan }}>6</span> Challenges Available</div>
+        <div style={{ padding: "14px 14px 8px", fontFamily: DISPLAY, fontSize: 9, color: T.textDim, letterSpacing: 2, textTransform: "uppercase" }}><span style={{ color: T.cyan }}>{CHALLENGES.length}</span> Challenges Available</div>
         {CHALLENGES.map((ch, i) => (
           <div key={ch.id} onClick={() => setSel(i)}
             style={{ padding: "11px 14px", background: sel === i ? ch.color + "08" : "transparent", borderLeft: `3px solid ${sel === i ? ch.color : "transparent"}`, borderBottom: `1px solid ${T.border}`, cursor: "pointer", transition: "all 0.12s" }}
@@ -523,7 +521,7 @@ function LeaderboardView() {
     <div style={{ maxWidth: 680, margin: "0 auto", padding: "24px 20px", height: "100%", overflow: "auto" }}>
       <div style={{ textAlign: "center", marginBottom: 28 }}>
         <h2 style={{ fontFamily: DISPLAY, fontSize: 16, color: T.cyan, letterSpacing: 4, margin: 0 }}>GLOBAL RANKINGS</h2>
-        <p style={{ fontFamily: MONO, fontSize: 10, color: T.textDim, marginTop: 6 }}>Top traders across all challenges</p>
+        <p style={{ fontFamily: MONO, fontSize: 10, color: T.textDim, marginTop: 6 }}>Top traders across all {CHALLENGES.length} challenges</p>
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 24, alignItems: "flex-end" }}>
         {[1, 0, 2].map(idx => {
@@ -533,7 +531,7 @@ function LeaderboardView() {
               <div style={{ width: isFirst ? 48 : 40, height: isFirst ? 48 : 40, borderRadius: "50%", background: `${color}18`, border: `2px solid ${color}60`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: DISPLAY, fontSize: isFirst ? 16 : 13, fontWeight: 800, color, marginBottom: 8, boxShadow: `0 0 15px ${color}20` }}>#{p.rank}</div>
               <div style={{ fontFamily: MONO, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 2 }}>{p.name}</div>
               <div style={{ fontFamily: MONO, fontSize: 14, fontWeight: 700, color: T.green, marginBottom: 4 }}>{fmtComma(p.score)}</div>
-              <div style={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{p.solved}/6 · {p.best}</div>
+              <div style={{ fontFamily: MONO, fontSize: 9, color: T.textDim }}>{p.solved}/{CHALLENGES.length} · {p.best}</div>
               <div style={{ width: "100%", height: isFirst ? 80 : 56 - idx * 8, background: `linear-gradient(to top, ${color}12, ${color}06)`, borderTop: `2px solid ${color}40`, borderRadius: "4px 4px 0 0", marginTop: 8 }} />
             </div>
           );
@@ -548,7 +546,7 @@ function LeaderboardView() {
             <span style={{ color: T.textMuted }}>#{e.rank}</span>
             <span style={{ color: T.text }}>{e.name}</span>
             <span style={{ color: T.green, textAlign: "right", fontWeight: 600 }}>{fmtComma(e.score)}</span>
-            <span style={{ color: T.textDim, textAlign: "right" }}>{e.solved}/6</span>
+            <span style={{ color: T.textDim, textAlign: "right" }}>{e.solved}/{CHALLENGES.length}</span>
             <span style={{ color: T.textDim, textAlign: "right" }}>{e.best}</span>
             <span style={{ textAlign: "right", fontSize: 10 }}>{e.streak > 0 ? `🔥${e.streak}` : "—"}</span>
           </div>
@@ -606,13 +604,11 @@ export default function HFTDashboard() {
 
   const handleTrade = useCallback(async (trade) => {
     const riskResult = await checkOrder(trade);
-    
     if (!riskResult.passed) {
       const msg = riskResult.violations?.[0]?.message || 'Risk limit exceeded';
       setToasts(prev => [...prev, { id: uid(), type: "error", message: `⚠️ REJECTED: ${msg}` }]);
       return;
     }
-    
     setTrades(prev => [trade, ...prev].slice(0, 100));
     const delta = trade.side === "BUY" ? trade.qty : -trade.qty;
     const newPosition = position + delta;
@@ -620,7 +616,6 @@ export default function HFTDashboard() {
     const newPnl = pnl + delta * rand(-0.03, 0.035);
     setPnl(newPnl);
     setToasts(prev => [...prev, { ...trade, id: uid() }]);
-    
     updatePosition("AAPL", newPosition);
     updatePnL(newPnl);
   }, [position, pnl, checkOrder, updatePosition, updatePnL]);
@@ -645,7 +640,6 @@ export default function HFTDashboard() {
       `}</style>
 
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 9999, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(34,211,238,0.008) 3px, rgba(34,211,238,0.008) 4px)", mixBlendMode: "screen" }} />
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 42, borderBottom: `1px solid ${T.border}`, background: T.bgAlt, flexShrink: 0 }}>
@@ -678,9 +672,7 @@ export default function HFTDashboard() {
       <div style={{ flex: 1, overflow: "hidden" }}>
         {view === "trade" && (
           <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 240px", gridTemplateRows: "1fr 170px", height: "100%", gap: 1, background: T.border }}>
-            <Panel title="Order Book" accent={T.cyan} noPad style={{ borderRadius: 0 }}>
-              <OrderBook book={book} />
-            </Panel>
+            <Panel title="Order Book" accent={T.cyan} noPad style={{ borderRadius: 0 }}><OrderBook book={book} /></Panel>
             <div style={{ background: T.surface, display: "flex", flexDirection: "column", overflow: "hidden" }}>
               <div style={{ padding: "10px 16px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div>
@@ -709,9 +701,7 @@ export default function HFTDashboard() {
                 <DepthChart book={book} width={580} height={60} />
               </div>
             </div>
-            <Panel title="Place Order" accent={T.cyan} style={{ borderRadius: 0 }}>
-              <TradingPanel midPrice={currentPrice} onTrade={handleTrade} />
-            </Panel>
+            <Panel title="Place Order" accent={T.cyan} style={{ borderRadius: 0 }}><TradingPanel midPrice={currentPrice} onTrade={handleTrade} /></Panel>
             <div style={{ gridColumn: "1 / -1", background: T.panel, display: "flex", flexDirection: "column" }}>
               <div style={{ padding: "0 14px", borderBottom: `1px solid ${T.border}`, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 28 }}>
                 <div style={{ display: "flex", gap: 1 }}>
