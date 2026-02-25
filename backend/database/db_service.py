@@ -5,7 +5,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
 
-DATABASE_URL = "postgresql://localhost/zetheta_hft"
+import os
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/zetheta_hft")
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
