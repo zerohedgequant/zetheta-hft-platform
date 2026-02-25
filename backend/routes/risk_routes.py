@@ -11,7 +11,7 @@ from datetime import datetime
 import asyncio
 import json
 
-from risk_engine import (
+from services.risk_engine import (
     RiskEngine,
     PositionLimits,
     DrawdownLimits,
@@ -92,7 +92,8 @@ async def initialize_risk_engine(
     Optionally use a challenge-specific preset.
     """
     if challenge_type and challenge_type in CHALLENGE_RISK_PRESETS:
-        risk_engines[session_id] = create_risk_engine_for_challenge(challenge_type)
+        risk_engines[session_id] = create_risk_engine_for_challenge(
+            challenge_type)
         return {
             "status": "initialized",
             "session_id": session_id,
@@ -123,7 +124,7 @@ async def get_risk_metrics(session_id: str):
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     return engine.get_risk_metrics()
 
 
@@ -139,14 +140,14 @@ async def pre_trade_check(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     result = engine.check_pre_trade(
         symbol=request.symbol,
         side=request.side,
         quantity=request.quantity,
         price=request.price
     )
-    
+
     return result.to_dict()
 
 
@@ -159,7 +160,7 @@ async def update_position(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     engine.update_position(request.symbol, request.quantity)
     return {"status": "updated", "symbol": request.symbol, "quantity": request.quantity}
 
@@ -173,7 +174,7 @@ async def update_price(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     engine.update_price(request.symbol, request.price)
     return {"status": "updated", "symbol": request.symbol, "price": request.price}
 
@@ -187,7 +188,7 @@ async def update_pnl(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     metrics = engine.update_pnl(request.pnl)
     return {"status": "updated", "pnl": request.pnl, "drawdown_metrics": metrics}
 
@@ -201,7 +202,7 @@ async def control_circuit_breaker(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     if request.action == "open":
         engine.circuit_breaker.force_open(request.duration_seconds)
     elif request.action == "close":
@@ -209,8 +210,9 @@ async def control_circuit_breaker(
     elif request.action == "reset":
         engine.reset()
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown action: {request.action}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Unknown action: {request.action}")
+
     return {"status": request.action, "circuit_breaker": engine.circuit_breaker.get_state()}
 
 
@@ -223,7 +225,7 @@ async def update_risk_config(
     engine = risk_engines.get(session_id)
     if not engine:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     # Update position limits
     if config.max_position_per_symbol is not None:
         engine.position_limits.max_position_per_symbol = config.max_position_per_symbol
@@ -233,19 +235,19 @@ async def update_risk_config(
         engine.position_limits.max_concentration_pct = config.max_concentration_pct
     if config.max_order_size is not None:
         engine.position_limits.max_order_size = config.max_order_size
-    
+
     # Update drawdown limits
     if config.daily_loss_limit is not None:
         engine.drawdown_limits.daily_loss_limit = config.daily_loss_limit
     if config.rolling_drawdown_pct is not None:
         engine.drawdown_limits.rolling_drawdown_pct = config.rolling_drawdown_pct
-    
+
     # Update rate limits
     if config.max_orders_per_second is not None:
         engine.rate_limits.max_orders_per_second = config.max_orders_per_second
     if config.max_orders_per_minute is not None:
         engine.rate_limits.max_orders_per_minute = config.max_orders_per_minute
-    
+
     return {
         "status": "updated",
         "position_limits": {
@@ -292,22 +294,22 @@ async def get_challenge_presets():
 
 class RiskWebSocketManager:
     """Manages WebSocket connections for real-time risk updates."""
-    
+
     def __init__(self):
         self.active_connections: Dict[str, List[WebSocket]] = {}
-    
+
     async def connect(self, session_id: str, websocket: WebSocket):
         await websocket.accept()
         if session_id not in self.active_connections:
             self.active_connections[session_id] = []
         self.active_connections[session_id].append(websocket)
-    
+
     def disconnect(self, session_id: str, websocket: WebSocket):
         if session_id in self.active_connections:
             self.active_connections[session_id].remove(websocket)
             if not self.active_connections[session_id]:
                 del self.active_connections[session_id]
-    
+
     async def broadcast_metrics(self, session_id: str, metrics: Dict):
         if session_id in self.active_connections:
             message = json.dumps({
@@ -320,7 +322,7 @@ class RiskWebSocketManager:
                     await connection.send_text(message)
                 except:
                     pass
-    
+
     async def broadcast_violation(self, session_id: str, violation: Dict):
         if session_id in self.active_connections:
             message = json.dumps({
@@ -342,11 +344,11 @@ ws_manager = RiskWebSocketManager()
 async def risk_websocket(websocket: WebSocket, session_id: str):
     """
     WebSocket endpoint for real-time risk metrics streaming.
-    
+
     Sends risk metrics every 100ms and violations immediately.
     """
     await ws_manager.connect(session_id, websocket)
-    
+
     try:
         # Start background task to send periodic metrics
         async def send_periodic_metrics():
@@ -356,16 +358,16 @@ async def risk_websocket(websocket: WebSocket, session_id: str):
                     metrics = engine.get_risk_metrics()
                     await ws_manager.broadcast_metrics(session_id, metrics)
                 await asyncio.sleep(0.1)  # 100ms updates
-        
+
         # Start the periodic task
         metrics_task = asyncio.create_task(send_periodic_metrics())
-        
+
         # Listen for incoming messages (e.g., manual commands)
         while True:
             data = await websocket.receive_text()
             try:
                 message = json.loads(data)
-                
+
                 if message.get("type") == "check_order":
                     engine = risk_engines.get(session_id)
                     if engine:
@@ -379,25 +381,26 @@ async def risk_websocket(websocket: WebSocket, session_id: str):
                             "type": "check_result",
                             "data": result.to_dict()
                         }))
-                        
+
                         # Broadcast violation if any
                         if result.violations:
                             for v in result.violations:
                                 await ws_manager.broadcast_violation(session_id, v.to_dict())
-                
+
                 elif message.get("type") == "update_position":
                     engine = risk_engines.get(session_id)
                     if engine:
-                        engine.update_position(message["symbol"], message["quantity"])
-                
+                        engine.update_position(
+                            message["symbol"], message["quantity"])
+
                 elif message.get("type") == "update_pnl":
                     engine = risk_engines.get(session_id)
                     if engine:
                         engine.update_pnl(message["pnl"])
-                        
+
             except json.JSONDecodeError:
                 pass
-                
+
     except WebSocketDisconnect:
         metrics_task.cancel()
         ws_manager.disconnect(session_id, websocket)

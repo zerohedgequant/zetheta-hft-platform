@@ -1,13 +1,15 @@
 """
 ZeTheta HFT Platform - FastAPI Backend
 """
+from routes.auth_routes import router as auth_router
+from routes.risk_routes import router as risk_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sys
 sys.path.append("services")
 sys.path.append("routes")
+sys.path.append("database")
 
-from routes.risk_routes import router as risk_router
 
 app = FastAPI(
     title="ZeTheta HFT Platform",
@@ -24,14 +26,17 @@ app.add_middleware(
 )
 
 app.include_router(risk_router)
+app.include_router(auth_router)
+
 
 @app.get("/")
 async def root():
     return {"message": "ZeTheta HFT Platform API", "status": "running"}
 
+
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "version": "1.0.0"}
 
 if __name__ == "__main__":
     import uvicorn
